@@ -11,7 +11,11 @@ from panda3d.core import MouseWatcher
 from panda3d.core import Shader
 from panda3d.core import GeomNode
 from panda3d.core import WindowProperties
+from panda3d.core import LineSegs
 
+from panda3d.core import ConfigVariableBool
+ConfigVariableBool("tk-main-loop").setValue(False)
+import math
 import sys
 from procedural3d.sphere import SphereMaker
 #from ..lib import procedural3d
@@ -21,8 +25,10 @@ from tkinter import ttk
 
 class GlobeApp(ShowBase):
     def __init__(self):
-        ShowBase.__init__(self, windowType='none')
-        self.setup_tk()
+        super().__init__()
+        #ShowBase.__init__(self, windowType='none')
+        
+        #self.setup_tk()
         
         self.disableMouse()
 
@@ -32,9 +38,12 @@ class GlobeApp(ShowBase):
             "vertical": 15
         }
         sphere_geom = SphereMaker(segments=segs).generate()
-        self.earth = self.render.attachNewNode(sphere_geom)
+        self.rotate = self.render.attachNewNode('rotate')
         
-        self.starmap = self.earth.copy_to(render)
+        self.earth = self.rotate.attachNewNode(sphere_geom)
+        #self.earth.setHpr(, math.radians(180), 0)
+        
+        self.starmap = self.earth.copy_to(self.rotate)
 
         texture = self.loader.loadTexture("../res/earth.jpg")
         self.earth.setTexture(texture, 1)
@@ -60,6 +69,15 @@ class GlobeApp(ShowBase):
         self.taskMgr.add(self.update_rotation, "UpdateRotationTask")
         self.accept("wheel_up", self.zoom_in)
         self.accept("wheel_down", self.zoom_out)
+        
+        self.markers = []
+        self.add_marker(40.7128, -74.0060)  # New York
+        self.add_marker(34.0522, -118.2437)  # Los Angeles
+        self.add_marker(51.5074, -0.1278)   # London
+        self.add_marker(-14.2400732, -53.180501) # Brazil
+        
+        # Draw paths between the markers
+        self.add_path(self.markers)
         
     def setup_tk(self):
         self.startTk()
@@ -172,8 +190,8 @@ class GlobeApp(ShowBase):
 
             self.last_mouse_pos = (mouse_x, mouse_y)
 
-        self.earth.setHpr(self.rotation_y, self.rotation_x, 0)
-        self.starmap.setHpr(self.rotation_y, self.rotation_x, 0)
+        self.rotate.setHpr(self.rotation_y, self.rotation_x, 0)
+        #self.starmap.setHpr(self.rotation_y, self.rotation_x, 0)
 
         self.camera.setPos(0, -self.zoom, 0)
 
@@ -185,6 +203,89 @@ class GlobeApp(ShowBase):
     def zoom_out(self):
         self.zoom = min(10, self.zoom + 0.3)
         
+    def add_path(self, markers):
+        """
+        Draws a curved path between the markers by calculating the great-circle route.
+        """
+        if len(markers) < 2:
+            return
+        
+        path_lines = LineSegs()
+        path_lines.setColor(1, 1, 0, 0.75)
+        for i in range(len(markers) - 1):
+            start = markers[i].getPos()
+            path_lines.moveTo(start)
+            end = markers[i + 1].getPos()
+            
+            # Number of intermediate points on the path
+            num_points = 50
+            for j in range(num_points + 1):
+                t = j / num_points  # Parameter between 0 and 1
+                point = self.interpolate_great_circle(start, end, t)
+                path_lines.drawTo(point)
+                #vertex_writer.addData3f(point)
+                
+        path_lines.drawTo(end)
+        self.rotate.attachNewNode(path_lines.create())
+
+    def interpolate_great_circle(self, start, end, t):
+        """
+        Interpolates between two points on the surface of a sphere.
+        t is a parameter between 0 and 1.
+        """
+        # Normalize the points
+        start = start.normalized()
+        end = end.normalized()
+        
+        # Spherical linear interpolation (SLERP)
+        cos_theta = start.dot(end)
+        if cos_theta > 0.9995:
+            result = start + t * (end - start)
+            result.normalize()
+        else:
+            theta = math.acos(cos_theta)
+            sin_theta = math.sin(theta)
+            a = math.sin((1 - t) * theta) / sin_theta
+            b = math.sin(t * theta) / sin_theta
+            result = start * a + end * b
+        
+        # Return the point in Cartesian coordinates
+        return result
+        
+    def add_marker(self, latitude, longitude, altitude=0.0):
+        """
+        Adds a sphere marker to the globe at the specified latitude and longitude (in degrees).
+        altitude is optional and in meters above the globe's surface.
+        """
+        # Convert latitude and longitude to radians
+        lat_rad = math.radians(latitude) 
+        lon_rad = math.radians(longitude) + math.radians(180)
+
+        earth_radius = 1.025
+
+        # Compute Cartesian coordinates
+        x = (earth_radius + altitude) * math.cos(lat_rad) * math.cos(lon_rad)
+        y = (earth_radius + altitude) * math.cos(lat_rad) * math.sin(lon_rad)
+        z = (earth_radius + altitude) * math.sin(lat_rad)
+
+        marker = self.loader.loadModel("models/misc/sphere")  # Load a small sphere model
+        
+        marker.setBin("fixed", 0)
+        marker.setDepthTest(False)
+        marker.setDepthWrite(False)
+        marker.setBin("transparent", 0)
+        marker.setTransparency(TransparencyAttrib.MAlpha)
+        marker.setColorScale(1, 1, 0, 0.5)
+        marker.setLightOff(1)
+        marker.setScale(0.01)  # Set size of the marker sphere
+        marker.setPos(x, y, z)  # Position the marker at the calculated coordinates
+
+        # Attach the marker to the globe
+        marker.reparentTo(self.rotate)
+        
+        self.markers.append(marker)
+        
 if __name__ == "__main__":
     app = GlobeApp()
+    base.setFrameRateMeter(True)
     app.run()
