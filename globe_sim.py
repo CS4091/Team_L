@@ -1,9 +1,3 @@
-import sys
-import os
-
-lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../lib'))
-sys.path.append(lib_path)
-
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import TransparencyAttrib
 from panda3d.core import NodePath, AmbientLight, DirectionalLight
@@ -18,7 +12,6 @@ ConfigVariableBool("tk-main-loop").setValue(False)
 import math
 import sys
 from procedural3d.sphere import SphereMaker
-#from ..lib import procedural3d
 
 import tkinter as tk
 from tkinter import ttk
@@ -160,6 +153,7 @@ class GlobeApp(ShowBase):
             self.add_marker(Marker(coord[0], coord[1]))
             
         path, dist = sim_ann_TSP(cities, init_temp=1000, cool_rate=0.995, min_temp=1e-3)
+        print("Path distance:", dist)
         self.add_path(path)
         
     def add_marker(self, marker):
