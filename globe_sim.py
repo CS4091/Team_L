@@ -54,6 +54,10 @@ class Marker:
         z = (1 + self.altitude) * math.sin(lat_rad)
         
         self.np.setPos(x, y, z)
+    
+    def delete(self):
+        self.np.removeNode()
+        del self
         
 class GlobeApp(ShowBase):
     def __init__(self, useTk = False):
@@ -107,7 +111,11 @@ class GlobeApp(ShowBase):
         self.accept("wheel_up", self.zoom_in)
         self.accept("wheel_down", self.zoom_out)
         
+        self.accept("e", self.do_path_demo)
+        
         self.markers = []
+        
+        self.lines = None
         
         # Draw paths between the markers
         #self.add_path(self.markers)
@@ -149,12 +157,19 @@ class GlobeApp(ShowBase):
         cool_rate = 0.995
         min_temp = 1e-3
         
+        self.remove_markers()
+        
         for coord in cities:
             self.add_marker(Marker(coord[0], coord[1]))
             
         path, dist = sim_ann_TSP(cities, init_temp=1000, cool_rate=0.995, min_temp=1e-3)
         print("Path distance:", dist)
         self.add_path(path)
+        
+    def remove_markers(self):
+        for marker in list(self.markers):
+            marker.delete()
+        self.markers = []
         
     def add_marker(self, marker):
         self.markers.append(marker)
@@ -215,6 +230,9 @@ class GlobeApp(ShowBase):
         """
         Draws a curved path between the markers by calculating the great-circle route.
         """
+        if self.lines:
+            self.lines.removeNode()
+        
         if len(indices) < 2:
             return
         
@@ -238,7 +256,7 @@ class GlobeApp(ShowBase):
         #lines_np.setBin("fixed", 0)
         #lines_np.setDepthTest(False)
         #lines_np.setDepthWrite(False)
-        
+        self.lines = lines_np
         
 
     def interpolate_great_circle(self, start, end, t):
