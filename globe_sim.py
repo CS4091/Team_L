@@ -162,8 +162,8 @@ class GlobeApp(ShowBase):
         for coord in cities:
             self.add_marker(Marker(coord[0], coord[1]))
             
-        path, dist = sim_ann_TSP(cities, init_temp=1000, cool_rate=0.995, min_temp=1e-3)
-        print("Path distance:", dist)
+        path, dist = sim_ann_TSP(cities, init_temp=1000, cool_rate=0.995, min_temp=1e-3, globe=True)
+        print("Path distance:", dist, "km")
         self.add_path(path)
         
     def remove_markers(self):
