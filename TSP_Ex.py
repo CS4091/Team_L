@@ -4,6 +4,24 @@ import random
 import tkinter as tk
 import time
 
+def haversine_dist(c1, c2):
+    # Convert latitude and longitude from degrees to radians
+    lat1, lon1 = math.radians(c1[0]), math.radians(c1[1])
+    lat2, lon2 = math.radians(c2[0]), math.radians(c2[1])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    # Earth radius in kilometers (mean radius)
+    R = 6371.0
+    
+    # Distance in kilometers
+    return R * c
+
 def euc_dist(c1, c2):
     return math.sqrt((c1[0] - c2[0])**2 + (c1[1] - c2[1])**2)
 
@@ -19,9 +37,10 @@ def neighbor(rt):
     neighbor_rt[i], neighbor_rt[j] = neighbor_rt[j], neighbor_rt[i]
     return neighbor_rt
 
-def sim_ann_TSP(cities, init_temp, cool_rate, min_temp):
+def sim_ann_TSP(cities, init_temp, cool_rate, min_temp, globe=False):
     num_cities = len(cities)
-    dist_matrix = [[euc_dist(cities[i], cities[j]) for j in range(num_cities)] for i in range(num_cities)]
+    func = haversine_dist if globe else euc_dist
+    dist_matrix = [[func(cities[i], cities[j]) for j in range(num_cities)] for i in range(num_cities)]
     curr_rt = list(range(num_cities))
     random.shuffle(curr_rt)
     curr_dist = tot_dist(curr_rt, dist_matrix)
@@ -45,7 +64,7 @@ def draw_route(canvas, cities, rt):
         canvas.create_oval(c1[0]*5-5, c1[1]*5-5, c1[0]*5+5, c1[1]*5+5, fill='red')
 
 if __name__ == "__main__":
-    num_cities = 1000
+    num_cities = 10
     cities = [(random.randint(0, 100), random.randint(0, 100)) for _ in range(num_cities)]
     
     init_temp = 1000
