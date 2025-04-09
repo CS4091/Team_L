@@ -1,26 +1,57 @@
 import geopandas as gpd
+from geopy import location
 import matplotlib.pyplot as plt
 from shapely.geometry import Point, LineString
-import math
-from TSP_Ex import sim_ann_TSP
+import math, random, sys
+from geopy.geocoders import Nominatim
 
 # Load a GeoDataFrame with real-world coordinates
 world = gpd.read_file('geopandas_maps/ne_110m_admin_0_countries.shp')
 
 # Example: List of real-world coordinates (latitude, longitude)
-cities = [
-    (48.8566, 2.3522),  # Paris
-    (51.5074, -0.1278), # London
-    (40.7128, -74.0060),# New York
-    (35.6895, 139.6917),# Tokyo
-    (55.7558, 37.6173), # Moscow
-    (45.3279, 14.4410), # Rijeka
-    (41.2141, 13.5710), # Gaeta
-    (37.5665, 126.9780),# Seoul
-    (37.7749, -122.4194),# San Francisco
-    (31.2304, 121.4737)  # Shanghai
-    # Add more cities as needed
-]
+cities = []
+list_prompt = ""
+while list_prompt != "N" and list_prompt != "n":
+    list_prompt = str(input("Please input a city name (or n/N to stop): "))
+    if list_prompt != "N" and list_prompt != "n":
+        geolocator = Nominatim(user_agent="TSP_annealing_example")
+        location = geolocator.geocode(list_prompt)
+        cities.append((location.latitude, location.longitude))
+
+def euc_dist(c1, c2):
+    return math.sqrt((c1[0] - c2[0])**2 + (c1[1] - c2[1])**2)
+
+def tot_dist(rt, dist_matrix):
+    distance = 0
+    for i in range(len(rt)):
+        distance += dist_matrix[rt[i]][rt[(i+1) % len(rt)]]
+    return distance
+
+def neighbor(rt):
+    neighbor_rt = rt[:]
+    i, j = random.sample(range(len(rt)), 2)
+    neighbor_rt[i], neighbor_rt[j] = neighbor_rt[j], neighbor_rt[i]
+    return neighbor_rt
+
+def sim_ann_TSP(cities, init_temp, cool_rate, min_temp):
+    num_cities = len(cities)
+    dist_matrix = [[euc_dist(cities[i], cities[j]) for j in range(num_cities)] for i in range(num_cities)]
+    curr_rt = list(range(num_cities))
+    #random.shuffle(curr_rt)
+    curr_rt_cp = curr_rt[1:-1]
+    random.shuffle(curr_rt_cp)
+    curr_rt = [curr_rt[0]] + curr_rt_cp + [curr_rt[-1]]
+    curr_dist = tot_dist(curr_rt, dist_matrix)
+    temp = init_temp
+    while temp > min_temp:
+        neighbor_rt = neighbor(curr_rt)
+        neighbor_dist= tot_dist(neighbor_rt, dist_matrix)
+        delta= neighbor_dist - curr_dist
+        if delta < 0 or random.random() < math.exp(-delta / temp):
+            curr_rt = neighbor_rt
+            curr_dist= neighbor_dist
+        temp *= cool_rate
+    return curr_rt, curr_dist
 
 # Convert to Cartesian coordinates for TSP
 def latlon_to_cartesian(lat, lon):
