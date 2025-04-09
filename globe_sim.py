@@ -23,9 +23,6 @@ import time
 
 from TSP_Ex import sim_ann_TSP
 
-#todo: need this outside?
-
-    
 class Route:
     app = None #todo
     routes = 0
@@ -35,12 +32,11 @@ class Route:
         self.markers = []
         self.lines_np = None
         self.distance = None
+        self.path = []
         if not name:
             name = f"Route {self.routes+1}"
         self.name = name
         Route.routes += 1
-        
-        self.treeview_id = None
         
         
     def remove_markers(self):
@@ -55,25 +51,20 @@ class Route:
         marker.np.reparentTo(self.np)
         return marker
     
-    def compute_path(self, alg):
-        #todo
-        points = []
-        for marker in self.markers:
-            points.append((marker.airport['lon'], marker.airport['lat']))
-        if alg['type'] == "Annealing":
-            path, dist = sim_ann_TSP(points, init_temp=alg['init_temp'], cool_rate=alg['cool_rate'], min_temp=alg['min_temp'], globe=True)
-        else:
-            return
-        #print("Path distance:", dist, "km")
-        self.distance = dist
+    def get_points(self):
+        return [(marker.airport['lon'], marker.airport['lat']) for marker in self.markers]
         
-        self.set_path(path)
+    def get_stats(self):
+        return {
+            "Distance:": self.distance
+        }
         
     def copy(self):
         route = Route()
         for marker in self.markers:
             route.add_airport(marker.airport)
-        route.set_path(self.path)
+        if self.path:
+            route.set_path(self.path)
         return route
     
     def set_path(self, indices):
@@ -171,17 +162,6 @@ class Marker:
         path_lines.drawTo(end)
 
         self.lines_np = self.np.attachNewNode(path_lines.create())
-        
-        self.treeview_id = None
-        #self.set_coords(latitude, longitude)
-        
-    # def get_coords(self):
-        # return self.__coords
-        
-    #def set_coords(self, latitude, longitude):
-    #    #self.__coords = (latitude, longitude)
-    #    #self.np.setPos(world_to_3d(latitude, longitude, self.altitude))
-        
     
     def delete(self):
         self.np.removeNode()
@@ -211,8 +191,6 @@ class GlobeApp(ShowBase):
         self.create_all_airports_points()
         
         self.current_route = None
-        self.routes = []
-        self.tree_objects = {} #todo refactor by making a new tree view class?
         self.create_new_route()
         
         
@@ -234,9 +212,9 @@ class GlobeApp(ShowBase):
         self.rotation_y = 0
         self.zoom = 5
         
-        self.accept("mouse1", self.start_drag)
-        self.accept("mouse1-up", self.stop_drag)
-        self.accept("mouse3", self.check_collision)
+        self.accept("mouse3", self.start_drag)
+        self.accept("mouse3-up", self.stop_drag)
+        self.accept("mouse1", self.marker_check)
         self.taskMgr.add(self.update_camera_rotation, "UpdateRotationTask")
         self.accept("wheel_up", self.zoom_in)
         self.accept("wheel_down", self.zoom_out)
@@ -307,9 +285,7 @@ class GlobeApp(ShowBase):
         if self.collision_handler.getNumEntries() > 0:
             entry = self.collision_handler.getEntry(0)
             col_point = entry.getSurfacePoint(self.render)  # Get the point of collision
-            #print(f"Collision at: {col_point}")
             closest_point = min(self.airport_positions.keys(), key=lambda point: (point - col_point).lengthSquared())
-            #print(self.airport_positions[closest_point])
             self.update_airport_info(self.airport_positions[closest_point])
 
     def create_all_airports_points(self):
@@ -353,12 +329,27 @@ class GlobeApp(ShowBase):
         self.airports_np = points_np
 
 
+    def marker_check(self):
+        airport = self.selected_airport
+        self.check_collision()
+        if airport == self.selected_airport:
+            self.add_selected_airport()
+
     def start_drag(self):
+        #self.set_window()
+        
         self.is_dragging = True
+        #self.dragged = False
         self.last_mouse_pos = None  # Reset tracking
+        
 
     def stop_drag(self):
         self.is_dragging = False
+        # if not self.dragged:
+            # airport = self.selected_airport
+            # self.check_collision()
+            # if airport == self.selected_airport:
+                # self.add_selected_airport()
 
     def update_camera_rotation(self, task):
         if self.is_dragging and self.mouseWatcherNode.hasMouse():
@@ -367,6 +358,9 @@ class GlobeApp(ShowBase):
             if self.last_mouse_pos:
                 dx = (mouse_x - self.last_mouse_pos[0]) * 10 * (self.zoom + 1)
                 dy = (mouse_y - self.last_mouse_pos[1]) * 10 * (self.zoom + 1)
+                
+                #if dy or dx:
+                #    self.dragged = True
     
                 # Update the camera's rotation based on mouse movement
                 self.rotation_x -= dy
@@ -410,7 +404,11 @@ class GlobeApp(ShowBase):
         
         
     def setup_tk(self):
+
+        
         self.startTk()
+        
+        
 
         self.tk = self.tkRoot
         self.tk.geometry("1920x1080")
@@ -453,28 +451,115 @@ class GlobeApp(ShowBase):
         self.bottom_bar_frame = tk.Frame(self.main_frame, bg='#2a2a2a', height=50)
         self.bottom_bar_frame.pack(side=tk.BOTTOM, fill=tk.X)
         
+        # Add checkbox to show all airports
         var = tk.IntVar()
         self.show_airports_var = var
         show_airports_checkbutton = ttk.Checkbutton(self.tab_airports, text="Show All", variable=var, command=self.show_all_airports, onvalue=1, offvalue=0)
         show_airports_checkbutton.pack(side=tk.TOP)
+
+        #todo: search box
+        row_frame = tk.Frame(self.tab_airports, bg='#2a2a2a')
+        row_frame.pack(fill=tk.X, pady=5, padx=5)
+        
+        search_label = tk.Label(row_frame, text="Search (todo)")
+        search_label.pack(side=tk.LEFT, pady=5, padx=5)
+        
+        self.search_box = tk.Text(row_frame, height=1, width=15)
+        self.search_box.pack(side=tk.RIGHT, padx=5)
+        
+        class DictView:
+            def __init__(self, parent, title):
+                self.entries = {}
+                self.info_frame = tk.LabelFrame(parent, text=title, bg='#2a2a2a')
+                self.info_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+                
+            class DictViewEntry:
+                def __init__(self, parent, key, value):
+                    row_frame = tk.Frame(parent, bg='#2a2a2a')
+                    row_frame.pack(fill=tk.X, pady=5)
+                    
+                    self.key_label = tk.Label(row_frame, text=str(key), anchor='w', width=15, bg='#2a2a2a', fg='white')
+                    self.key_label.pack(side=tk.LEFT, padx=5)
+                    
+                    self.value_label = tk.Label(row_frame, text=str(value), anchor='e', width=25, bg='#2a2a2a', fg='white')
+                    self.value_label.pack(side=tk.RIGHT, padx=5)
+                    
+                def set_value(self, value):
+                    self.value_label.config(text=str(value))
+                
+            def view_dict(self, dictionary):
+                for key, value in dictionary.items():
+                    if key in self.entries:
+                        self.entries[key].set_value(value)
+                    else:
+                        entry = self.DictViewEntry(self.info_frame, key, value)
+                        self.entries[key] = entry
         
         # Create a new section in the sidebar for Airport Information
-        self.airport_info_labels = {}
-        self.airport_info_frame = tk.LabelFrame(self.tab_airports, text="Airport Info", bg='#2a2a2a')
-        self.airport_info_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+        self.airport_info_view = DictView(self.tab_airports, "Airport Info")
 
-        add_airport_button = ttk.Button(self.airport_info_frame, text="Add To Route", command=self.add_selected_airport)
+        add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route", command=self.add_selected_airport)
         add_airport_button.pack(side=tk.BOTTOM, padx=10)
         
-        self.route_tree = ttk.Treeview(self.tab_routes)
-        self.route_tree.heading('#0', text="Route List")
-        self.route_tree.pack()
-        self.route_tree.bind("<<TreeviewSelect>>", self.treeview_select)
+        class RouteTree: #todo maybe abstract to ItemTree?
+            def __init__(self, parent, title):
+                self.id_to_object = {}
+                self.object_to_id = {} 
+                self.treeview = ttk.Treeview(parent)
+                self.treeview.heading('#0', text=title)
+                self.treeview.pack(fill=tk.X, pady=5, padx=10)
         
-        #todo: buttons for new route, copy current route
-        def update_value_label(slider, label):
-            value = slider.get()  # Get the current value of the slider
-            label.config(text=f"{value:.3f}")  # Update the label text with the value
+            def add_item(self, parent_id, item, name):
+                tree_id = self.treeview.insert(parent_id, "end", text=name, open=True)
+                self.id_to_object[tree_id] = item
+                self.object_to_id[item] = tree_id
+        
+            def add_route(self, route):
+                self.add_item("", route, route.name)
+                for marker in route.markers:
+                    self.add_marker(route, marker)
+        
+            def delete_item(self, item):
+                pass
+            
+            def add_marker(self, route, marker):
+                parent_id = self.object_to_id[route]
+                self.add_item(parent_id, marker, marker.airport['name'])
+        
+            def update_route_list(self, route):
+                route_id = self.object_to_id.get(route)
+                if route_id:
+                    for marker in route.markers:
+                        marker_id = self.object_to_id.get(marker)
+                        if marker_id:
+                            self.treeview.delete(marker_id)
+                            del self.id_to_object[marker_id]
+                            del self.object_to_id[marker]
+        
+                    for index in route.path:
+                        marker = route.markers[index]
+                        self.add_marker(route, marker)
+        
+            @property
+            def selected_item(self):
+                selection = self.treeview.selection()
+                if selection:
+                    selected = selection[-1]
+                    return self.id_to_object.get(selected)
+        
+        # Add section in left to view routes and markers
+        self.route_tree = RouteTree(self.tab_routes, "Route List")
+        self.route_tree.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
+        
+        # Add route new/delete buttons
+        row_frame = tk.Frame(self.tab_routes)
+        row_frame.pack(fill=tk.X, pady=5, padx=10)
+        self.copy_route_button = ttk.Button(row_frame, text="Copy Current Route", command=self.copy_current_route)
+        self.copy_route_button.pack(side=tk.LEFT)
+        self.new_route_button = ttk.Button(row_frame, text="New Route", command=self.create_new_route)
+        self.new_route_button.pack(side=tk.LEFT)
+        self.new_route_button = ttk.Button(row_frame, text="Delete Route", command=self.delete_route)
+        self.new_route_button.pack(side=tk.LEFT)
             
         # Add a "Compute Route" section to the routes tab
         self.compute_route_frame = tk.LabelFrame(self.tab_routes, text="Find Shortest Path", bg='#2a2a2a', padx=10, pady=10)
@@ -487,62 +572,42 @@ class GlobeApp(ShowBase):
         self.heuristic_dropdown.pack(pady=10)
         self.heuristic_dropdown.bind("<<ComboboxSelected>>", self.heuristic_changed)
         
-        #todo: we need to refactor this, setting up sliders and labels programatically based on each heuristic
         
-    
-        # Initial Temperature Slider
-        self.init_temp_label = tk.Label(self.compute_route_frame, text="Initial Temperature:")
-        self.init_temp_label.pack(side=tk.TOP, anchor='w')
-        self.init_temp_value_label = tk.Label(self.compute_route_frame, text="1000.000")  # Initial value label
-        self.init_temp_value_label.pack(side=tk.TOP, anchor='w')
-        self.init_temp_slider = ttk.Scale(self.compute_route_frame, from_=1, to=2000, orient="horizontal",
-                                        command=lambda e: update_value_label(self.init_temp_slider, self.init_temp_value_label))
-        self.init_temp_slider.set(1000)  # Default value
-        self.init_temp_slider.pack(side=tk.TOP, fill=tk.X)
-        
-        # Cool Rate Slider
-        self.cool_rate_label = tk.Label(self.compute_route_frame, text="Cooling Rate:")
-        self.cool_rate_label.pack(side=tk.TOP, anchor='w')
-        self.cool_rate_value_label = tk.Label(self.compute_route_frame, text="0.995")  # Initial value label
-        self.cool_rate_value_label.pack(side=tk.TOP, anchor='w')
-        self.cool_rate_slider = ttk.Scale(self.compute_route_frame, from_=0.9, to=0.999, orient="horizontal",
-                                        command=lambda e: update_value_label(self.cool_rate_slider, self.cool_rate_value_label))
-        self.cool_rate_slider.set(0.995)  # Default value
-        self.cool_rate_slider.pack(side=tk.TOP, fill=tk.X)
-        
-        # Minimum Temperature Slider
-        self.min_temp_label = tk.Label(self.compute_route_frame, text="Minimum Temperature:")
-        self.min_temp_label.pack(side=tk.TOP, anchor='w')
-        self.min_temp_value_label = tk.Label(self.compute_route_frame, text="0.001")  # Initial value label
-        self.min_temp_value_label.pack(side=tk.TOP, anchor='w')
-        self.min_temp_slider = ttk.Scale(self.compute_route_frame, from_=1e-5, to=1e-2, orient="horizontal",
-                                        command=lambda e: update_value_label(self.min_temp_slider, self.min_temp_value_label))
-        self.min_temp_slider.set(1e-3)  # Default value
-        self.min_temp_slider.pack(side=tk.TOP, fill=tk.X)
-        
-        
-    
+        class ParamSlider:
+            def __init__(self, parent, text, from_val, to_val, default_val):
+                self.label = tk.Label(parent, text=text)
+                self.label.pack(side=tk.TOP, anchor='w')
+                self.value_label = tk.Label(parent)
+                self.value_label.pack(side=tk.TOP, anchor='w')
+                self.value_slider = ttk.Scale(
+                    parent, from_=from_val, 
+                    to=to_val, 
+                    orient="horizontal", 
+                    command=lambda e: self.update_value_label()
+                )
+                self.value_slider.set(default_val)
+                self.value_slider.pack(side=tk.TOP, fill=tk.X)
+            
+            def update_value_label(self):
+                self.value_label.config(text=f"{self.value:.3f}")
+                
+            @property
+            def value(self):
+                return self.value_slider.get()
+                
+        self.init_temp_input = ParamSlider(self.compute_route_frame, "Initial Temperature:", 1, 2000, 1000)
+        self.cool_rate_input = ParamSlider(self.compute_route_frame, "Cooling Rate:", 0.9, 0.999, 0.995)
+        self.min_temp_input  = ParamSlider(self.compute_route_frame, "Minimum Temperature:", 1e-5, 1e-2, 1e-3)
+
         # Compute Route Button
         self.compute_route_button = ttk.Button(self.compute_route_frame, text="Compute Route", command=self.compute_route)
         self.compute_route_button.pack(side=tk.TOP, pady=10)
         
-     
-        #  Route stats
-        # todo: abstract this type of frame. Also done in the airport info
-        self.route_stats_frame = tk.LabelFrame(self.tab_routes, text="Route Stats", bg='#2a2a2a', padx=10, pady=10)
-        self.route_stats_frame.pack(fill=tk.BOTH, padx=10, pady=10)
-        row_frame = tk.Frame(self.route_stats_frame, bg='#2a2a2a')
-        row_frame.pack(fill=tk.X, pady=5)
-        key_label = tk.Label(row_frame, text="Distance", anchor='w', width=15, bg='#2a2a2a', fg='white')
-        key_label.pack(side=tk.LEFT, padx=5)
-        self.distance_value_label = tk.Label(row_frame, text="", anchor='e', width=25, bg='#2a2a2a', fg='white')
-        self.distance_value_label.pack(side=tk.RIGHT, padx=5)
+        # Route Stats
+        self.route_stats_view = DictView(self.tab_routes, "Route Stats")
         
-        
-        self.copy_route_button = ttk.Button(self.tab_routes, text="Copy Current Route", command=self.copy_current_route)
-        self.copy_route_button.pack(side=tk.TOP, pady=10)
-        self.new_route_button = ttk.Button(self.tab_routes, text="New Route", command=self.create_new_route)
-        self.new_route_button.pack(side=tk.TOP, pady=10)
+        #todo: move these to be underneath the tree view
+
 
         props = WindowProperties()
         props.set_parent_window(self.label_frame.winfo_id())  # Display within the label frame
@@ -554,21 +619,15 @@ class GlobeApp(ShowBase):
         self.props = props
         
         self.tk.bind("<Configure>", self.on_window_resize)
-    
-    # def on_route_select(self, event):
-        # sel_index = self.route_tree.curselection()
-        # if sel_index:
-            # self.set_current_route(self.route_tree.get(sel_index))
+        self.tkRoot.protocol("WM_DELETE_WINDOW", self.on_closing)
             
-    def treeview_select(self, event):
-        selected = self.route_tree.selection()
-        for item_id in selected:
-            data = self.tree_objects.get(item_id)
-            if isinstance(data, Route):
-                self.set_current_route(data)
-            elif isinstance(data, Marker):
-                self.update_airport_info(data.airport)
-                #todo: select color, no "add to route" button
+    def on_treeview_select(self, event):
+        item = self.route_tree.selected_item
+        if isinstance(item, Route):
+            self.set_current_route(item)
+        elif isinstance(item, Marker):
+            self.update_airport_info(item.airport)
+            #todo: select color, no "add to route" button
             
     def create_new_route(self):
         self.add_route(Route())        
@@ -577,58 +636,57 @@ class GlobeApp(ShowBase):
         self.add_route(self.current_route.copy())
         
     def heuristic_changed(self):
+        print("Change not implemented")
+        pass
+        
+    def delete_route(self):
+        print("Delete not implemented")
         pass
         
     def compute_route(self):
-        alg = {}
-        alg['type'] = self.selected_heuristic.get()
-        if alg['type'] == "Annealing":
-            alg['init_temp'] = self.init_temp_slider.get()
-            alg['cool_rate'] = self.cool_rate_slider.get()
-            alg['min_temp'] = self.min_temp_slider.get()
+        route = self.current_route
         
-        self.current_route.compute_path(alg)
-        # Rearrange treeview markers to match the new order
-        if self.current_route.treeview_id:
-            # Remove all the old markers from the treeview
-            for marker in self.current_route.markers:
-                self.route_tree.delete(marker.treeview_id)
+        if not route.markers:
+            return
             
-            # Reinsert markers based on the new order in the indices list
-            for index in self.current_route.path:
-                marker = self.current_route.markers[index]
-                marker.treeview_id = self.route_tree.insert(self.current_route.treeview_id, "end", text=marker.airport['name'])
-                
+        match self.selected_heuristic.get():
+            case "Annealing":
+                path, dist = sim_ann_TSP(
+                    cities=route.get_points(), 
+                    init_temp=self.init_temp_input.value, 
+                    cool_rate=self.cool_rate_input.value, 
+                    min_temp=self.min_temp_input.value, 
+                    globe=True
+                )
         
-        self.distance_value_label.config(text=self.current_route.distance)
-    
-    
-    # def add_to_tree(self, parent, obj):
-        # self.tree_objects[obj.treeview_id] = obj
-        # obj.treeview_id = self.route_tree.insert(parent, 
-    
+        route.distance = dist
+        route.set_path(path)
+
+        self.update_route_info()
+
+
+    def update_route_info(self):
+        self.route_stats_view.view_dict(self.current_route.get_stats())
+        self.route_tree.update_route_list(self.current_route)
+        
     #todo also add delete
     def add_route(self, route):
-        self.routes.append(route)
-        route.treeview_id = self.route_tree.insert("", "end", text=route.name, open=True, values=route)
-        self.tree_objects[route.treeview_id] = route
-        #self.route_tree.tag_bind(id(route), function=lambda: self.set_current_route(route))
-        for marker in route.markers:
-            marker.treeview_id = self.route_tree.insert(route.treeview_id, "end", text=marker.airport['name']) #todo also called in add selected airport
+        self.route_tree.add_route(route)
         self.set_current_route(route)
     
     def set_current_route(self, route):
         if self.current_route:
             self.current_route.np.hide()
         self.current_route = route
-        self.distance_value_label.config(text=self.current_route.distance) #todo: we should make an update info method (also called in compute_route)
+        self.update_route_info()
         route.np.show()
+    
     
     def add_selected_airport(self):
         self.selected_airport_marker.delete()
         self.selected_airport_marker = None
         marker = self.current_route.add_airport(self.selected_airport)
-        marker.treeview_id = self.route_tree.insert(self.current_route.treeview_id, "end", text=marker.airport['name']) #todo figure out where to add markers to the tree view
+        self.route_tree.add_marker(self.current_route, marker)
         
     def show_all_airports(self):
         if self.show_airports_var.get():
@@ -639,45 +697,24 @@ class GlobeApp(ShowBase):
     def update_airport_info(self, airport: dict):
         # Update the labels with the new data (instead of destroying and recreating)
 
-        if self.selected_airport == airport:
-            self.add_selected_airport()
-        else:
-            self.selected_airport = airport
+        self.selected_airport = airport
         if self.selected_airport_marker:
             self.selected_airport_marker.delete()
         self.selected_airport_marker = Marker(self.selected_airport)
         self.selected_airport_marker.np.setColorScale(Marker.select_color)
         self.selected_airport_marker.np.reparentTo(render)
         
-        for key, value in airport.items():
-            if key in self.airport_info_labels:
-                # If the label already exists, just update the text
-                self.airport_info_labels[key][1].config(text=str(value))
-            else:
-                # If the label doesn't exist, create new ones
-                row_frame = tk.Frame(self.airport_info_frame, bg='#2a2a2a')
-                row_frame.pack(fill=tk.X, pady=5)
-
-                key_label = tk.Label(row_frame, text=key, anchor='w', width=15, bg='#2a2a2a', fg='white')
-                key_label.pack(side=tk.LEFT, padx=5)
-
-                value_label = tk.Label(row_frame, text=str(value), anchor='e', width=25, bg='#2a2a2a', fg='white')
-                value_label.pack(side=tk.RIGHT, padx=5)
-
-                # Store the reference to the key-value pair labels
-                self.airport_info_labels[key] = (key_label, value_label)
-        
+        self.airport_info_view.view_dict(airport)
+    
+    #todo: reduce lag
     def on_window_resize(self, event):
-        #print(event, "resizing")
-        window_width = event.width
-        window_height = event.height
+        width = self.viewport_frame.winfo_width()
+        height = self.viewport_frame.winfo_height()
+        self.props.set_size(width, height)
+        base.win.request_properties(self.props)
         
-        #todo have some timer 
-        if base.win.getXSize() != window_width-50 or base.win.getYSize() != window_height-50:
-            #print("resized")
-            # Resize the Panda3D window to match the Tkinter window size
-            self.props.set_size(window_width - 50, window_height - 50)  # Adjust for the bottom bar height (50px)
-            base.win.request_properties(self.props)
+    def on_closing(self):
+        self.taskMgr.stop()
 
     def setup_lights(self):
         ambient_light = AmbientLight("ambient_light")
@@ -695,3 +732,8 @@ if __name__ == "__main__":
     app = GlobeApp(useTk=True)
     base.setFrameRateMeter(True)
     app.run()
+    
+    
+#todo: need this outside?
+
+    
