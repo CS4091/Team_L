@@ -683,8 +683,9 @@ class GlobeApp(ShowBase):
     
     
     def add_selected_airport(self):
-        self.selected_airport_marker.delete()
-        self.selected_airport_marker = None
+        if self.selected_airport_marker:
+            self.selected_airport_marker.delete()
+            self.selected_airport_marker = None
         marker = self.current_route.add_airport(self.selected_airport)
         self.route_tree.add_marker(self.current_route, marker)
         
