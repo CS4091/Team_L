@@ -1,2 +1,3 @@
-pip install panda3d
-pip install Pmw
+panda3d
+Pmw
+airportsdata
