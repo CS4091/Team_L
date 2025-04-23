@@ -1,6 +1,6 @@
 from src import GlobeSim
 
 if __name__ == "__main__":
-    app = GlobeSim(useTk=True)
+    app = GlobeSim()
     base.setFrameRateMeter(True)
     app.run()

@@ -11,7 +11,7 @@ from src.gui import GlobeSimUI
 from src.camera import GlobeSimCam
 from src.world import GlobeSimWorld
 from src.route import Route, Marker
-from src.heuristic import sim_ann_TSP
+from src.heuristic import sim_ann_TSP, brute_force, nearest_neighbor
 
 import airportsdata
 import time
@@ -19,7 +19,7 @@ import time
 
 
 class GlobeSim(ShowBase):
-    def __init__(self, useTk = False):
+    def __init__(self):
         ShowBase.__init__(self, windowType='none')
         
         # Setup the ui
@@ -37,8 +37,6 @@ class GlobeSim(ShowBase):
         ui.new_route_button.configure(command=self.create_new_route)
         ui.delete_route_button.configure(command=self.delete_route)
         ui.compute_route_button.configure(command=self.compute_route)
-
-        ui.heuristic_dropdown.bind("<<ComboboxSelected>>", self.heuristic_changed)
         
         self.ui = ui
 
@@ -114,15 +112,18 @@ class GlobeSim(ShowBase):
             self.set_current_route(item)
         elif isinstance(item, Marker):
             self.update_airport_info(item.airport)
-            #todo: select color, no "add to route" button
         
     def compute_route(self):
+        """ Updates the route based on the selected heuristic in the dropdown """
         route = self.current_route
         
         if not route.markers:
             return
             
+        cities = route.get_points()
+        
         match self.ui.selected_heuristic.get():
+            
             case "Annealing":
                 path, dist = sim_ann_TSP(
                     cities=route.get_points(), 
@@ -130,15 +131,15 @@ class GlobeSim(ShowBase):
                     cool_rate=self.ui.cool_rate_input.value, 
                     min_temp=self.ui.min_temp_input.value
                 )
+            case "Nearest Neighbor":
+                path, dist = nearest_neighbor(cities)
+            case "Brute Force":
+                path, dist = brute_force(cities)
         
         route.distance = dist
         route.set_path(path)
 
         self.ui.update_route_info(self.current_route)
-        
-    def heuristic_changed(self):
-        print("Change not implemented")
-        pass
         
     def create_new_route(self):
         self.add_route(Route())     
@@ -176,8 +177,6 @@ class GlobeSim(ShowBase):
             self.world.airports_np.hide()
         
     def update_airport_info(self, airport: dict):
-        # Update the labels with the new data (instead of destroying and recreating)
-
         self.selected_airport = airport
         if self.selected_airport_marker:
             self.selected_airport_marker.delete()
@@ -191,13 +190,8 @@ class GlobeSim(ShowBase):
     def on_window_resize(self, event):
         width = self.ui.viewport_frame.winfo_width()
         height = self.ui.viewport_frame.winfo_height()
-        self.props.set_size(width, height)
+        self.props.set_size(width-20, height-40)
         base.win.request_properties(self.props)
         
     def on_closing(self):
         self.taskMgr.stop()
-    
-    
-#todo: need this outside?
-
-    

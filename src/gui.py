@@ -164,7 +164,7 @@ class GlobeSimUI:
         # Add route new/delete buttons
         row_frame = tk.Frame(tab_routes)
         row_frame.pack(fill=tk.X, pady=5, padx=10)
-        self.copy_route_button = ttk.Button(row_frame, text="Copy Current Route",)
+        self.copy_route_button = ttk.Button(row_frame, text="Copy Current Route")
         self.copy_route_button.pack(side=tk.LEFT)
         self.new_route_button = ttk.Button(row_frame, text="New Route")
         self.new_route_button.pack(side=tk.LEFT)
@@ -175,15 +175,25 @@ class GlobeSimUI:
         compute_route_frame = tk.LabelFrame(tab_routes, text="Find Shortest Path", bg='#2a2a2a', padx=10, pady=10)
         compute_route_frame.pack(fill=tk.BOTH, padx=10, pady=10)
         
-        heuristic_options = ["Annealing"]
+        annealing_frame = tk.LabelFrame(compute_route_frame, text="Options", bg='#2a2a2a', padx=10, pady=10)
+        annealing_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+        
+        self.heuristic_options = {
+            "Annealing": annealing_frame,
+            "Nearest Neighbor": None,
+            "Brute Force": None
+        }
+        
         self.selected_heuristic = tk.StringVar()
-        self.selected_heuristic.set(heuristic_options[0])
-        self.heuristic_dropdown = ttk.Combobox(compute_route_frame, textvariable=self.selected_heuristic, values=heuristic_options)
+        self.selected_heuristic.set("Annealing")
+        self.heuristic_dropdown = ttk.Combobox(compute_route_frame, textvariable=self.selected_heuristic, values=list(self.heuristic_options.keys()))
         self.heuristic_dropdown.pack(pady=10)
+        self.heuristic_dropdown.bind("<<ComboboxSelected>>", self.set_heuristic)
+
          
-        self.init_temp_input = ParamSlider(compute_route_frame, "Initial Temperature:", 1, 10000, 1000)
-        self.cool_rate_input = ParamSlider(compute_route_frame, "Cooling Rate:", 0.9, 0.9999, 0.995)
-        self.min_temp_input  = ParamSlider(compute_route_frame, "Minimum Temperature:", 1e-5, 1e-2, 1e-3)
+        self.init_temp_input = ParamSlider(annealing_frame, "Initial Temperature:", 1, 10000, 1000)
+        self.cool_rate_input = ParamSlider(annealing_frame, "Cooling Rate:", 0.9, 0.9999, 0.995)
+        self.min_temp_input  = ParamSlider(annealing_frame, "Minimum Temperature:", 1e-5, 1e-2, 1e-3)
 
         # Compute Route Button
         self.compute_route_button = ttk.Button(compute_route_frame, text="Compute Route")
@@ -191,6 +201,14 @@ class GlobeSimUI:
         
         # Route Stats
         self.route_stats_view = DictView(tab_routes, "Route Stats")
+        
+    def set_heuristic(self, event):
+        for panel in self.heuristic_options.values():
+            if panel:
+                panel.pack_forget()
+        new_options = self.heuristic_options[self.selected_heuristic.get()]
+        if new_options:
+            new_options.pack(fill=tk.BOTH, padx=10, pady=10)
         
     def update_route_info(self, route):
         self.route_stats_view.view_dict(route.get_stats())
