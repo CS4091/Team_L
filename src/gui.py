@@ -41,8 +41,8 @@ class RouteTree: #todo maybe abstract to ItemTree?
         for marker in route.markers:
             self.add_marker(route, marker)
 
-    def delete_item(self, item):
-        pass
+    def remove_route(self, route):
+        self.treeview.delete(self.object_to_id[route])
     
     def add_marker(self, route, marker):
         parent_id = self.object_to_id[route]

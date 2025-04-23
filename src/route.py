@@ -26,6 +26,9 @@ class Route:
         self.markers.append(marker)
         marker.np.reparentTo(self.np)
         return marker
+        
+    def get_airports(self):
+        return [marker.airport for marker in self.markers]
     
     def get_points(self):
         return [(marker.airport['lon'], marker.airport['lat']) for marker in self.markers]
@@ -42,6 +45,12 @@ class Route:
         if self.path:
             route.set_path(self.path)
         return route
+    
+    def delete(self):
+        for marker in list(self.markers):
+            marker.delete()
+        self.np.removeNode()
+        del self
     
     def set_path(self, indices):
         """

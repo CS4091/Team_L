@@ -11,12 +11,10 @@ from src.gui import GlobeSimUI
 from src.camera import GlobeSimCam
 from src.world import GlobeSimWorld
 from src.route import Route, Marker
-from src.heuristic import sim_ann_TSP, brute_force, nearest_neighbor
+from src.heuristic import TSPHeuristic
 
 import airportsdata
 import time
-
-
 
 class GlobeSim(ShowBase):
     def __init__(self):
@@ -35,7 +33,7 @@ class GlobeSim(ShowBase):
         ui.route_tree.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
         ui.copy_route_button.configure(command=self.copy_current_route)
         ui.new_route_button.configure(command=self.create_new_route)
-        ui.delete_route_button.configure(command=self.delete_route)
+        ui.delete_route_button.configure(command=self.delete_current_route)
         ui.compute_route_button.configure(command=self.compute_route)
         
         self.ui = ui
@@ -123,18 +121,17 @@ class GlobeSim(ShowBase):
         cities = route.get_points()
         
         match self.ui.selected_heuristic.get():
-            
             case "Annealing":
-                path, dist = sim_ann_TSP(
+                path, dist = TSPHeuristic.sim_ann_TSP(
                     cities=route.get_points(), 
                     init_temp=self.ui.init_temp_input.value, 
                     cool_rate=self.ui.cool_rate_input.value, 
                     min_temp=self.ui.min_temp_input.value
                 )
             case "Nearest Neighbor":
-                path, dist = nearest_neighbor(cities)
+                path, dist = TSPHeuristic.nearest_neighbor(cities)
             case "Brute Force":
-                path, dist = brute_force(cities)
+                path, dist = TSPHeuristic.brute_force(cities)
         
         route.distance = dist
         route.set_path(path)
@@ -147,13 +144,18 @@ class GlobeSim(ShowBase):
     def copy_current_route(self):
         self.add_route(self.current_route.copy())
         
-    def add_route(self, route):
+    def add_route(self, route): #TODO we need to update the route tree so its not storing the routes, should store them in globe sim
         self.ui.route_tree.add_route(route)
         route.np.reparentTo(self.world.np)
         self.set_current_route(route)
         
-    def delete_route(self):
-        print("Delete not implemented")
+    def delete_current_route(self):
+        self.delete_route(self.current_route)
+        
+    def delete_route(self, route):
+        self.ui.route_tree.remove_route(route)
+        route.delete()
+        #self.set_current_route( TODO
         pass
     
     def set_current_route(self, route):
@@ -164,6 +166,8 @@ class GlobeSim(ShowBase):
         route.np.show()
     
     def add_selected_airport(self):
+        if self.selected_airport in self.current_route.get_airports():
+            return
         if self.selected_airport_marker:
             self.selected_airport_marker.delete()
             self.selected_airport_marker = None
