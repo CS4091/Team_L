@@ -48,30 +48,23 @@ class TSPHeuristic:
         return curr_rt, curr_dist
         
     def brute_force(cities):
-        from permutations import permutations
-        # find all possible path permutations
-        num_cities = len(cities)
-        dist_matrix = get_dist_matrix(cities)
+        from itertools import permutations
         
-        possiblePaths = list(permutations(range(1, num_cities), r=num_cities-1))
-        # stores the length of all paths for sorting later
-        pathLength = []
-
-        for i in possiblePaths:
-            currentLength = 0
-            # add the lengths of the first and last path
-            currentLength += dist_matrix[0][i[0]] + dist_matrix[0][i[-1]]
-            # add the lengths of all other paths
-            for j in range(num_cities-2):
-                currentLength += dist_matrix[i[j]][i[j+1]]
-            pathLength.append(currentLength)
-
-        # find the shortest path
-        shortestPathIndex = min(range(len(pathLength)), key=pathLength.__getitem__)
-        # convert shortest path to string
-        shortestPath = possiblePaths[shortestPathIndex]
-        cost = pathLength[shortestPathIndex]
-        return shortestPath, cost
+        dist_matrix = get_dist_matrix(cities)
+        cities_nums = list(range(len(cities)))
+        
+        min_cost = float('inf')
+        min_path = []
+        
+        for perm in permutations(cities_nums[1:]):  # Fix city 0 as start
+            path = [0] + list(perm) + [0]  # return to the starting city
+            cost = sum(dist_matrix[path[i]][path[i+1]] for i in range(len(path) - 1))
+            
+            if cost < min_cost:
+                min_cost = cost
+                min_path = path
+                
+        return min_path, min_cost
         
     def nearest_neighbor(cities):
         visitedCities = [0]
@@ -79,14 +72,20 @@ class TSPHeuristic:
         cost = 0
         num_cities = len(cities)
         dist_matrix = get_dist_matrix(cities)
-        while len(visitedCities) < len(dist_matrix):
-            minLength = max(dist_matrix[currentCity])
+
+        while len(visitedCities) < num_cities:
+            minLength = float('inf')
+            nextCity = None
             for i in range(num_cities):
-                if dist_matrix[currentCity][i] < minLength and i not in visitedCities:
+                if i not in visitedCities and dist_matrix[currentCity][i] < minLength:
                     minLength = dist_matrix[currentCity][i]
+                    nextCity = i
+            visitedCities.append(nextCity)
             cost += minLength
-            currentCity = dist_matrix[currentCity].index(minLength)
-            visitedCities.append(currentCity)
-        cost += dist_matrix[0][visitedCities[-1]]
-        visitedCities.pop(0)
+            currentCity = nextCity
+
+        # Return to the starting city
+        cost += dist_matrix[currentCity][0]
+        visitedCities.append(0)  # complete the tour
+
         return visitedCities, cost

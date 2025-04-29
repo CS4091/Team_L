@@ -60,10 +60,17 @@ class RouteTree: #todo maybe abstract to ItemTree?
 
             for index in route.path:
                 marker = route.markers[index]
-                self.add_marker(route, marker)
+                if marker not in self.object_to_id:
+                    self.add_marker(route, marker)
+    
+    def get_prev_route(self, route):
+        items = self.treeview.get_children('')
+        if len(items) == 1:
+            return None
+        prev_index = items.index(self.object_to_id[route])-1
+        return self.id_to_object[items[prev_index]]
 
-    @property
-    def selected_item(self):
+    def get_selected_item(self):
         selection = self.treeview.selection()
         if selection:
             selected = selection[-1]
@@ -138,25 +145,28 @@ class GlobeSimUI:
         self.show_airports_checkbutton = ttk.Checkbutton(tab_airports, text="Show All", variable=var, onvalue=1, offvalue=0)
         self.show_airports_checkbutton.pack(side=tk.TOP)
 
-        #todo: search box
-        row_frame = tk.Frame(tab_airports, bg='#2a2a2a')
+        # Search box
+        search_frame = tk.LabelFrame(tab_airports, bg='#2a2a2a')
+        search_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+        
+        row_frame = tk.Frame(search_frame)
         row_frame.pack(fill=tk.X, pady=5, padx=5)
         
-        search_label = tk.Label(row_frame, text="Search (todo)")
+        search_label = tk.Label(row_frame, text="Search")
         search_label.pack(side=tk.LEFT, pady=5, padx=5)
         
-        self.search_box = tk.Text(row_frame, height=1, width=15)
+        self.search_box = tk.Entry(row_frame, width=20)
         self.search_box.pack(side=tk.RIGHT, padx=5)
+        self.search_box.bind("<Button-1>", lambda e: self.search_box.focus_force())
         
-
+        self.result_listbox = tk.Listbox(search_frame, height=15)
+        self.result_listbox.pack(fill=tk.X, padx=10, pady=(0, 10))
         
         # Create a new section in the sidebar for Airport Information
         self.airport_info_view = DictView(tab_airports, "Airport Info")
 
         self.add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route")
         self.add_airport_button.pack(side=tk.BOTTOM, padx=10)
-        
-
         
         # Add section in left to view routes and markers
         self.route_tree = RouteTree(tab_routes, "Route List")
@@ -201,6 +211,39 @@ class GlobeSimUI:
         
         # Route Stats
         self.route_stats_view = DictView(tab_routes, "Route Stats")
+        
+    def search_airports(self, airports):
+        query = self.search_box.get().lower().strip()
+
+    
+        self.result_listbox.delete(0, tk.END)  # Clear previous results
+        self.search_results = []  # Store matches for later use
+        
+        if len(query) < 2:
+            return
+    
+        for airport in airports.values():
+            if (query in airport['icao'].lower() or
+                query in airport['iata'].lower() or
+                query in airport['name'].lower() or
+                query in airport['city'].lower()):
+                display_text = f"{airport['icao']} - {airport['name']} ({airport['city']})"
+                self.result_listbox.insert(tk.END, display_text)
+                self.search_results.append(airport)
+                if len(self.search_results) > 100:
+                    return
+        
+        if not self.search_results:
+            self.result_listbox.insert(tk.END, "No results found.")
+            
+    def get_selected_search(self):
+        selection = self.result_listbox.curselection()
+        if not selection:
+            return None
+        index = selection[0]
+        if index >= len(self.search_results):
+            return None
+        return self.search_results[index]
         
     def set_heuristic(self, event):
         for panel in self.heuristic_options.values():

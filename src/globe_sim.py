@@ -35,6 +35,8 @@ class GlobeSim(ShowBase):
         ui.new_route_button.configure(command=self.create_new_route)
         ui.delete_route_button.configure(command=self.delete_current_route)
         ui.compute_route_button.configure(command=self.compute_route)
+        ui.result_listbox.bind("<<ListboxSelect>>", self.on_search_select)
+        ui.search_box.bind("<KeyRelease>", self.search_airports)
         
         self.ui = ui
 
@@ -69,7 +71,7 @@ class GlobeSim(ShowBase):
         # Setup the 3d objects
         self.world = GlobeSimWorld()
         self.world.create_points(self.airports)
-        self.world.earth.setTexture(self.loader.loadTexture("res/earth.jpg"))
+        self.world.earth.setTexture(self.loader.loadTexture("res/earth_2.jpg"))
         self.world.starmap.setTexture(self.loader.loadTexture("res/starmap.jpg"))
         self.world.np.reparentTo(render)
         self.world.mouse_ray_node_path.reparentTo(self.cam)
@@ -97,6 +99,7 @@ class GlobeSim(ShowBase):
             nearest = self.world.find_airport()
             if nearest:
                 self.update_airport_info(nearest)
+                
     
     def mouse_click(self):
         airport = self.selected_airport
@@ -105,11 +108,17 @@ class GlobeSim(ShowBase):
             self.add_selected_airport()
             
     def on_treeview_select(self, event):
-        item = self.ui.route_tree.selected_item
+        item = self.ui.route_tree.get_selected_item()
         if isinstance(item, Route):
             self.set_current_route(item)
         elif isinstance(item, Marker):
             self.update_airport_info(item.airport)
+            
+    def search_airports(self, event):
+        self.ui.search_airports(self.airports)
+            
+    def on_search_select(self, event):
+        self.update_airport_info(self.ui.get_selected_search())
         
     def compute_route(self):
         """ Updates the route based on the selected heuristic in the dropdown """
@@ -119,6 +128,9 @@ class GlobeSim(ShowBase):
             return
             
         cities = route.get_points()
+        
+        if len(cities) < 2:
+            return
         
         match self.ui.selected_heuristic.get():
             case "Annealing":
@@ -147,10 +159,17 @@ class GlobeSim(ShowBase):
     def add_route(self, route): #TODO we need to update the route tree so its not storing the routes, should store them in globe sim
         self.ui.route_tree.add_route(route)
         route.np.reparentTo(self.world.np)
+        
         self.set_current_route(route)
         
     def delete_current_route(self):
-        self.delete_route(self.current_route)
+        if self.current_route:
+            to_del = self.current_route
+            new = self.ui.route_tree.get_prev_route(self.current_route)
+            self.set_current_route(new)
+            self.delete_route(to_del)
+            if not new:
+                self.create_new_route()
         
     def delete_route(self, route):
         self.ui.route_tree.remove_route(route)
@@ -162,8 +181,9 @@ class GlobeSim(ShowBase):
         if self.current_route:
             self.current_route.np.hide()
         self.current_route = route
-        self.ui.update_route_info(self.current_route)
-        route.np.show()
+        if route:
+            self.ui.update_route_info(self.current_route)
+            route.np.show()
     
     def add_selected_airport(self):
         if self.selected_airport in self.current_route.get_airports():
@@ -181,6 +201,8 @@ class GlobeSim(ShowBase):
             self.world.airports_np.hide()
         
     def update_airport_info(self, airport: dict):
+        if not airport:
+            return #TODO
         self.selected_airport = airport
         if self.selected_airport_marker:
             self.selected_airport_marker.delete()
