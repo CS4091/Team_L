@@ -6,6 +6,11 @@ from panda3d.core import ConfigVariableBool
 ConfigVariableBool("tk-main-loop").setValue(False)
 import math
 import sys
+import asyncio
+import python_weather
+
+sys.path.append("..")
+from weather_test import ext_weather
 
 from src.gui import GlobeSimUI
 from src.camera import GlobeSimCam
@@ -29,6 +34,7 @@ class GlobeSim(ShowBase):
         
         ui = GlobeSimUI(self.tkRoot)
         ui.show_airports_checkbutton.configure(command=self.show_all_airports)
+        ui.show_weather_checkbutton.configure(command=self.we_button)
         ui.add_airport_button.configure(command=self.add_selected_airport)
         ui.route_tree.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
         ui.copy_route_button.configure(command=self.copy_current_route)
@@ -71,7 +77,7 @@ class GlobeSim(ShowBase):
         self.world.create_points(self.airports)
         self.world.earth.setTexture(self.loader.loadTexture("res/earth.jpg"))
         self.world.starmap.setTexture(self.loader.loadTexture("res/starmap.jpg"))
-        self.world.np.reparentTo(render)
+        self.world.np.reparentTo(self.render)
         self.world.mouse_ray_node_path.reparentTo(self.cam)
         
         # Initial ui
@@ -180,22 +186,40 @@ class GlobeSim(ShowBase):
         else:
             self.world.airports_np.hide()
         
+    def get_ext_weather_info(self, airport):
+        code = airport.get('iata') or airport.get('icao') or airport.get('faa')
+        if code:
+            try:
+                ext_cod = ext_weather(code)
+            except Exception as e:
+                return {'error': str(e)}
+            return ext_cod
+        return {'error': 'No airport code available'}
+        
     def update_airport_info(self, airport: dict):
         self.selected_airport = airport
         if self.selected_airport_marker:
             self.selected_airport_marker.delete()
         self.selected_airport_marker = Marker(self.selected_airport)
         self.selected_airport_marker.np.setColorScale(Marker.select_color)
-        self.selected_airport_marker.np.reparentTo(render)
-        
+        self.selected_airport_marker.np.reparentTo(self.render)
         self.ui.airport_info_view.view_dict(airport)
-
+        
+        if self.ui.show_weather_var.get():
+            self.check_weather(self.selected_airport)
+        # Fetch and display ext_weather info if code available
+    def we_button(self): return self.ui.show_weather_var.get()
+    def check_weather(self, m_airport):
+        ext_weather_info = self.get_ext_weather_info(m_airport)
+        if ext_weather_info:
+            self.ui.weather_info_view.view_dict(ext_weather_info)
+    
     #todo: reduce lag
     def on_window_resize(self, event):
         width = self.ui.viewport_frame.winfo_width()
         height = self.ui.viewport_frame.winfo_height()
         self.props.set_size(width-20, height-40)
-        base.win.request_properties(self.props)
+        self.win.request_properties(self.props)
         
     def on_closing(self):
         self.taskMgr.stop()

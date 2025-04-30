@@ -153,6 +153,13 @@ class GlobeSimUI:
         # Create a new section in the sidebar for Airport Information
         self.airport_info_view = DictView(tab_airports, "Airport Info")
 
+        # Add a new section in the sidebar for Weather Information
+        self.weather_info_view = DictView(tab_airports, "Weather")
+        
+        self.show_weather_var = tk.IntVar()
+        self.show_weather_checkbutton = ttk.Checkbutton(tab_airports, text="Show Weather", variable=self.show_weather_var, onvalue=1, offvalue=0)
+        self.show_weather_checkbutton.pack(side=tk.TOP, padx=5)
+
         self.add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route")
         self.add_airport_button.pack(side=tk.BOTTOM, padx=10)
         
