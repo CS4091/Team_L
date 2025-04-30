@@ -86,6 +86,6 @@ class TSPHeuristic:
 
         # Return to the starting city
         cost += dist_matrix[currentCity][0]
-        visitedCities.append(0)  # complete the tour
+        visitedCities.append(0) 
 
         return visitedCities, cost

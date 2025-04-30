@@ -23,9 +23,17 @@ class Route:
     def add_airport(self, airport):
         #todo: don't add duplicate airports
         marker = Marker(airport)
+        marker.route = self
         self.markers.append(marker)
         marker.np.reparentTo(self.np)
         return marker
+        
+    def remove_airport(self, airport):
+        for marker in list(self.markers):
+            if marker.airport == airport:
+                self.markers.remove(marker)
+                self.set_path(None)
+                return marker
         
     def get_airports(self):
         return [marker.airport for marker in self.markers]
@@ -64,7 +72,7 @@ class Route:
         if self.lines_np:
             self.lines_np.removeNode()
         
-        if len(indices) < 2:
+        if not indices or len(indices) < 2:
             return
         
         path_lines = LineSegs()
@@ -124,6 +132,7 @@ class Marker:
         if self.loaded_model is None:
             self.loaded_model = loader.loadModel("models/misc/sphere")
             
+        self.route = None
         self.airport = airport
         np = self.loaded_model.instanceTo(NodePath())
         

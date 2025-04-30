@@ -30,6 +30,7 @@ class GlobeSim(ShowBase):
         ui = GlobeSimUI(self.tkRoot)
         ui.show_airports_checkbutton.configure(command=self.show_all_airports)
         ui.add_airport_button.configure(command=self.add_selected_airport)
+        ui.remove_airport_button.configure(command=self.remove_selected_airport)
         ui.route_tree.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
         ui.copy_route_button.configure(command=self.copy_current_route)
         ui.new_route_button.configure(command=self.create_new_route)
@@ -99,7 +100,6 @@ class GlobeSim(ShowBase):
             nearest = self.world.find_airport()
             if nearest:
                 self.update_airport_info(nearest)
-                
     
     def mouse_click(self):
         airport = self.selected_airport
@@ -112,6 +112,7 @@ class GlobeSim(ShowBase):
         if isinstance(item, Route):
             self.set_current_route(item)
         elif isinstance(item, Marker):
+            self.set_current_route(item.route)
             self.update_airport_info(item.airport)
             
     def search_airports(self, event):
@@ -172,7 +173,7 @@ class GlobeSim(ShowBase):
                 self.create_new_route()
         
     def delete_route(self, route):
-        self.ui.route_tree.remove_route(route)
+        self.ui.route_tree.remove_item(route)
         route.delete()
         #self.set_current_route( TODO
         pass
@@ -182,17 +183,27 @@ class GlobeSim(ShowBase):
             self.current_route.np.hide()
         self.current_route = route
         if route:
-            self.ui.update_route_info(self.current_route)
+            self.ui.route_stats_view.view_dict(route.get_stats()) #TODO
             route.np.show()
+            
+    def remove_selection_marker(self):
+        if self.selected_airport_marker:
+            self.selected_airport_marker.delete()
+            self.selected_airport_marker = None
     
     def add_selected_airport(self):
         if self.selected_airport in self.current_route.get_airports():
             return
-        if self.selected_airport_marker:
-            self.selected_airport_marker.delete()
-            self.selected_airport_marker = None
+        self.remove_selection_marker()
         marker = self.current_route.add_airport(self.selected_airport)
         self.ui.route_tree.add_marker(self.current_route, marker)
+        
+    def remove_selected_airport(self):
+        self.remove_selection_marker()
+        marker = self.current_route.remove_airport(self.selected_airport)
+        if marker:
+            self.ui.route_tree.remove_item(marker)
+            marker.delete()
 
     def show_all_airports(self):
         if self.ui.show_airports_var.get():

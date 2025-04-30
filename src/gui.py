@@ -35,14 +35,17 @@ class RouteTree: #todo maybe abstract to ItemTree?
         tree_id = self.treeview.insert(parent_id, "end", text=name, open=True)
         self.id_to_object[tree_id] = item
         self.object_to_id[item] = tree_id
+        
+    def remove_item(self, item):
+        self.treeview.delete(self.object_to_id[item])
+        item_id = self.object_to_id[item]
+        del self.object_to_id[item]
+        del self.id_to_object[item_id]
 
     def add_route(self, route):
         self.add_item("", route, route.name)
         for marker in route.markers:
             self.add_marker(route, marker)
-
-    def remove_route(self, route):
-        self.treeview.delete(self.object_to_id[route])
     
     def add_marker(self, route, marker):
         parent_id = self.object_to_id[route]
@@ -164,9 +167,15 @@ class GlobeSimUI:
         
         # Create a new section in the sidebar for Airport Information
         self.airport_info_view = DictView(tab_airports, "Airport Info")
-
-        self.add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route")
-        self.add_airport_button.pack(side=tk.BOTTOM, padx=10)
+        
+        row_frame = tk.Frame(self.airport_info_view.info_frame, bg='#2a2a2a')
+        row_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=5, padx=10)
+        
+        self.add_airport_button = ttk.Button(row_frame, text="Add To Route")
+        self.add_airport_button.pack(side=tk.LEFT, padx=10)
+        
+        self.remove_airport_button = ttk.Button(row_frame, text="Remove From Route")
+        self.remove_airport_button.pack(side=tk.LEFT, padx=10)
         
         # Add section in left to view routes and markers
         self.route_tree = RouteTree(tab_routes, "Route List")
@@ -252,6 +261,8 @@ class GlobeSimUI:
         new_options = self.heuristic_options[self.selected_heuristic.get()]
         if new_options:
             new_options.pack(fill=tk.BOTH, padx=10, pady=10)
+            
+            
         
     def update_route_info(self, route):
         self.route_stats_view.view_dict(route.get_stats())
