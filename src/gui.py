@@ -131,6 +131,15 @@ class GlobeSimUI:
         tab_routes = tk.Frame(tabs_left)
         tabs_left.add(tab_routes, text="Routes")
 
+        menu_bar = tk.Menu(root)
+        root.config(menu=menu_bar)
+        
+        # Create File menu
+        self.file_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="File", menu=self.file_menu)
+        #file_menu.add_separator()
+        #file_menu.add_command(label="Exit", command=root.quit)
+
         # Frame for the Panda3D viewport (content area)
         self.viewport_frame = tk.Frame(main_frame, bg='#111111')
         self.viewport_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -189,6 +198,13 @@ class GlobeSimUI:
         self.new_route_button.pack(side=tk.LEFT)
         self.delete_route_button = ttk.Button(row_frame, text="Delete Route")
         self.delete_route_button.pack(side=tk.LEFT)
+        
+        #row_frame = tk.Frame(tab_routes)
+        #row_frame.pack(fill=tk.X, pady=5, padx=10)
+        #self.import_route_button = ttk.Button(row_frame, text="Import")
+        #self.import_route_button.pack(side=tk.LEFT)
+        #self.export_route_button = ttk.Button(row_frame, text="Export")
+        #self.export_route_button.pack(side=tk.LEFT)
             
         # Add a "Compute Route" section to the routes tab
         compute_route_frame = tk.LabelFrame(tab_routes, text="Find Shortest Path", bg='#2a2a2a', padx=10, pady=10)

@@ -13,8 +13,12 @@ from src.world import GlobeSimWorld
 from src.route import Route, Marker
 from src.heuristic import TSPHeuristic
 
+from tkinter import filedialog
+import os
+
 import airportsdata
 import time
+import xml.etree.ElementTree as ET
 
 class GlobeSim(ShowBase):
     def __init__(self):
@@ -28,16 +32,24 @@ class GlobeSim(ShowBase):
         self.tkRoot.call("set_theme", "dark")
         
         ui = GlobeSimUI(self.tkRoot)
+        
+        ui.file_menu.add_command(label="Import", command=self.dlg_import)
+        ui.file_menu.add_command(label="Export", command=self.dlg_export)
+        
         ui.show_airports_checkbutton.configure(command=self.show_all_airports)
         ui.add_airport_button.configure(command=self.add_selected_airport)
         ui.remove_airport_button.configure(command=self.remove_selected_airport)
+        
         ui.route_tree.treeview.bind("<<TreeviewSelect>>", self.on_treeview_select)
         ui.copy_route_button.configure(command=self.copy_current_route)
         ui.new_route_button.configure(command=self.create_new_route)
         ui.delete_route_button.configure(command=self.delete_current_route)
+        
         ui.compute_route_button.configure(command=self.compute_route)
+        
         ui.result_listbox.bind("<<ListboxSelect>>", self.on_search_select)
         ui.search_box.bind("<KeyRelease>", self.search_airports)
+        
         
         self.ui = ui
 
@@ -78,9 +90,12 @@ class GlobeSim(ShowBase):
         self.world.mouse_ray_node_path.reparentTo(self.cam)
         
         # Initial ui
+        self.routes = []
         self.current_route = None
         self.create_new_route()
         self.update_airport_info(self.airports[next(iter(self.airports))]) #todo, just using the first airport as setup here
+        
+        
         
     def update_camera(self, task):
         """ Update the camera each frame """
@@ -158,9 +173,10 @@ class GlobeSim(ShowBase):
         self.add_route(self.current_route.copy())
         
     def add_route(self, route): #TODO we need to update the route tree so its not storing the routes, should store them in globe sim
+        # We could simplify stuff by passing the route list to the route tree each time so that it can update
         self.ui.route_tree.add_route(route)
         route.np.reparentTo(self.world.np)
-        
+        self.routes.append(route)
         self.set_current_route(route)
         
     def delete_current_route(self):
@@ -173,10 +189,11 @@ class GlobeSim(ShowBase):
                 self.create_new_route()
         
     def delete_route(self, route):
+        if route == self.current_route:
+            self.current_route = None
         self.ui.route_tree.remove_item(route)
+        self.routes.remove(route)
         route.delete()
-        #self.set_current_route( TODO
-        pass
     
     def set_current_route(self, route):
         if self.current_route:
@@ -232,3 +249,43 @@ class GlobeSim(ShowBase):
         
     def on_closing(self):
         self.taskMgr.stop()
+        
+    def dlg_import(self):
+        folder_path = os.path.join(os.getcwd(), "saved")
+    
+        file_path = filedialog.askopenfilename(
+            initialdir=folder_path,
+            title="Select a routes file",
+            filetypes=[("XML files", "*.xml")]
+        )
+        if file_path:
+            self.import_file(file_path)
+            
+    def dlg_export(self):
+        folder_path = os.path.join(os.getcwd(), "saved")
+    
+        file_path = filedialog.asksaveasfilename(
+            initialdir=folder_path,
+            title="Save a routes file",
+            defaultextension=".xml",
+            filetypes=[("XML files", "*.xml")]
+        )
+    
+        if file_path:
+            self.export_file(file_path)
+        
+    def import_file(self, path):
+        for route in list(self.routes):
+            self.delete_route(route)
+        tree = ET.parse(path)
+        for route_elem in tree.getroot():
+            self.add_route(Route.from_element(route_elem, self.airports))
+        
+    def export_file(self, path):
+        root = ET.Element("Routes")
+        for route in self.routes:
+            root.append(route.to_element())
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space="    ", level=0)
+        tree.write(path, encoding="utf-8", xml_declaration=True)
+        

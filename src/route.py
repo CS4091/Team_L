@@ -1,5 +1,6 @@
 from panda3d.core import NodePath, TransparencyAttrib, LineSegs, Point3
 import math
+import xml.etree.ElementTree as ET
 
 class Route:
     routes = 0
@@ -120,7 +121,38 @@ class Route:
         
         # Return the point in Cartesian coordinates
         return result
+        
+    def get_icaos(self):
+        return [airport['icao'] for airport in self.get_airports()]
+            
+        
+    def to_element(self):
+        return ET.Element("Route",
+            name=self.name,
+            airports_icao=" ".join(self.get_icaos()),
+            path=" ".join([str(i) for i in self.path]),
+            distance=str(self.distance)
+        )
+        
+    @classmethod
+    def from_element(cls, elem, airports_data):
+        route = cls(elem.get("name"))
+        route.distance = float(elem.get("distance"))
+        
+        icaos = elem.get("airports_icao").split()
+        route_airports = {}
+        for airport in airports_data.values():
+            if airport['icao'] in icaos:
+               route_airports[airport['icao']] = airport
+               
+        for icao in icaos:
+            route.add_airport(route_airports[icao])
 
+        path = [int(i) for i in elem.get("path").split()]
+        route.set_path(path)
+        
+        return route
+        
 class Marker:
     altitude = 0.025
     color = (1, 1, 0, 0.5)

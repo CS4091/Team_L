@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Routes>
+    <Route name="Route 5" airports_icao="02UT K6M0 BGMV DATG SJLJ USUU HSBT UHMN FAPG ZUUU YKNT VDKK" path="10 11 9 7 0 1 4 2 3 6 8 5" distance="59805.20572480808" />
+    <Route name="Route 6" airports_icao="02UT K6M0 BGMV DATG SJLJ USUU HSBT UHMN FAPG ZUUU YKNT VDKK" path="5 2 1 0 4 3 6 8 7 9 11 10" distance="64437.420370875305" />
+    <Route name="Route 7" airports_icao="02UT K6M0 BGMV DATG SJLJ USUU HSBT UHMN FAPG ZUUU YKNT VDKK" path="2 4 8 11 9 7 0 1 10 5 6 3" distance="79720.34827979718" />
+</Routes>
