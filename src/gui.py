@@ -96,17 +96,18 @@ class DictView:
             
             self.value_label = tk.Label(row_frame, text=str(value), anchor='e', width=25, bg='#2a2a2a', fg='white')
             self.value_label.pack(side=tk.RIGHT, padx=5)
+            
         def set_value(self, value):
             self.value_label.config(text=str(value))
+            
         def remove(self):
             self.key_label.pack_forget()
             self.value_label.pack_forget()
+            
         def reshow(self):
             self.key_label.pack(side=tk.LEFT, padx=5)
             self.value_label.pack(side=tk.RIGHT, padx=5)
-            
 
-        
     def view_dict(self, dictionary):
         for key, value in dictionary.items():
             if key in self.entries:
@@ -114,6 +115,7 @@ class DictView:
             else:
                 entry = self.DictViewEntry(self.info_frame, key, value)
                 self.entries[key] = entry
+                
     def close_dict(self):
         #for k in self.entries.keys():
         #    self.entries[k].remove()
@@ -204,15 +206,15 @@ class GlobeSimUI:
         self.show_weather_var = tk.IntVar()
         self.show_weather_checkbutton = ttk.Checkbutton(tab_airports, text="Show Weather", variable=self.show_weather_var, onvalue=1, offvalue=0)
         self.show_weather_checkbutton.pack(side=tk.TOP, padx=5)
-
-        self.add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route")
-        self.add_airport_button.pack(side=tk.BOTTOM, padx=10)
         
+        row_frame = tk.Frame(self.airport_info_view.info_frame)
+        row_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5, padx=5)
+
         self.add_airport_button = ttk.Button(row_frame, text="Add To Route")
         self.add_airport_button.pack(side=tk.LEFT, padx=10)
-        
+
         self.remove_airport_button = ttk.Button(row_frame, text="Remove From Route")
-        self.remove_airport_button.pack(side=tk.LEFT, padx=10)
+        self.remove_airport_button.pack(side=tk.RIGHT, padx=10)
         
         # Add section in left to view routes and markers
         self.route_tree = RouteTree(tab_routes, "Route List")

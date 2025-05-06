@@ -58,7 +58,6 @@ class GlobeSim(ShowBase):
         
         
         self.ui = ui
-        self.weather_ui = False
         self.current_weather = dict()
 
         props = WindowProperties()
@@ -242,10 +241,9 @@ class GlobeSim(ShowBase):
                 self.ui.weather_info_view.reshow()
             else:
                 self.ui.weather_info_view.view_dict(self.current_weather)
-            self.weather_ui = True
         else:
             self.ui.weather_info_view.close_dict()
-            self.weather_ui = False
+            
     def get_ext_weather_info(self, airport):
         code = airport.get('iata') or airport.get('icao') or airport.get('faa')
         if code:
@@ -265,12 +263,13 @@ class GlobeSim(ShowBase):
         self.selected_airport_marker = Marker(self.selected_airport)
         self.selected_airport_marker.np.setColorScale(Marker.select_color)
         self.selected_airport_marker.np.reparentTo(self.render)
+        
         self.ui.airport_info_view.view_dict(airport)
 
-        ext_weather_info = self.get_ext_weather_info(self.selected_airport)
-        if ext_weather_info:
-            self.current_weather = ext_weather_info
         if self.ui.show_weather_var.get():
+            ext_weather_info = self.get_ext_weather_info(self.selected_airport)
+            if ext_weather_info:
+                self.current_weather = ext_weather_info
             self.ui.weather_info_view.view_dict(self.current_weather)
 
     #todo: reduce lag

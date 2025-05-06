@@ -4,7 +4,7 @@ import os
 
 
 def ext_weather(air_code: str = "YOY") -> dict:
-    print(os.getcwd())
+    #print(os.getcwd())
     os.chdir("src/weather_util")
     wet = dict()
     
