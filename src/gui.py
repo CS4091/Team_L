@@ -78,12 +78,13 @@ class RouteTree: #todo maybe abstract to ItemTree?
         if selection:
             selected = selection[-1]
             return self.id_to_object.get(selected)
-                    
+
 class DictView:
     def __init__(self, parent, title):
         self.entries = {}
         self.info_frame = tk.LabelFrame(parent, text=title, bg='#2a2a2a')
         self.info_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+        self.first_called = False
         
     class DictViewEntry:
         def __init__(self, parent, key, value):
@@ -95,9 +96,16 @@ class DictView:
             
             self.value_label = tk.Label(row_frame, text=str(value), anchor='e', width=25, bg='#2a2a2a', fg='white')
             self.value_label.pack(side=tk.RIGHT, padx=5)
-            
         def set_value(self, value):
             self.value_label.config(text=str(value))
+        def remove(self):
+            self.key_label.pack_forget()
+            self.value_label.pack_forget()
+        def reshow(self):
+            self.key_label.pack(side=tk.LEFT, padx=5)
+            self.value_label.pack(side=tk.RIGHT, padx=5)
+            
+
         
     def view_dict(self, dictionary):
         for key, value in dictionary.items():
@@ -106,6 +114,19 @@ class DictView:
             else:
                 entry = self.DictViewEntry(self.info_frame, key, value)
                 self.entries[key] = entry
+    def close_dict(self):
+        #for k in self.entries.keys():
+        #    self.entries[k].remove()
+        self.info_frame.pack_forget()
+        self.first_called = True
+    
+    def reshow(self):
+        self.info_frame.pack(fill=tk.BOTH, padx=10, pady=10)
+        
+
+
+                
+                
 
 class GlobeSimUI:
     def __init__(self, root):
@@ -171,14 +192,21 @@ class GlobeSimUI:
         self.search_box.pack(side=tk.RIGHT, padx=5)
         self.search_box.bind("<Button-1>", lambda e: self.search_box.focus_force())
         
-        self.result_listbox = tk.Listbox(search_frame, height=15)
-        self.result_listbox.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.result_listbox = tk.Listbox(search_frame, height=7)
+        self.result_listbox.pack(fill=tk.X, padx=10, pady=(0, 8))
         
         # Create a new section in the sidebar for Airport Information
         self.airport_info_view = DictView(tab_airports, "Airport Info")
+
+        # Add a new section in the sidebar for Weather Information
+        self.weather_info_view = DictView(tab_airports, "Weather")
         
-        row_frame = tk.Frame(self.airport_info_view.info_frame, bg='#2a2a2a')
-        row_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=5, padx=10)
+        self.show_weather_var = tk.IntVar()
+        self.show_weather_checkbutton = ttk.Checkbutton(tab_airports, text="Show Weather", variable=self.show_weather_var, onvalue=1, offvalue=0)
+        self.show_weather_checkbutton.pack(side=tk.TOP, padx=5)
+
+        self.add_airport_button = ttk.Button(self.airport_info_view.info_frame, text="Add To Route")
+        self.add_airport_button.pack(side=tk.BOTTOM, padx=10)
         
         self.add_airport_button = ttk.Button(row_frame, text="Add To Route")
         self.add_airport_button.pack(side=tk.LEFT, padx=10)
